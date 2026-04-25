@@ -15,6 +15,36 @@ interface TestEmailData {
   ventureName: string
 }
 
+interface IntakeFounder {
+  fullName?: string | null
+  email?: string | null
+  phone?: string | null
+}
+
+interface IntakeFinancials {
+  currency?: string | null
+  lastFYRevenue?: number | null
+  avgMonthlyRevenue?: number | null
+  currentCashBalance?: number | null
+  stage?: string | null
+  notes?: string | null
+}
+
+interface IntakeEmailData {
+  id?: string | number
+  ventureName_en?: string | null
+  ventureName_km?: string | null
+  country?: string | null
+  description_en?: string | null
+  description_km?: string | null
+  impactAreas?: string[] | null
+  founders?: IntakeFounder[] | null
+  financials?: IntakeFinancials | null
+  triageTrack?: string | null
+  triageRationale?: string | null
+  disabilityFlag?: boolean | null
+}
+
 class EmailService {
   private transporter: Transporter | null = null
   private fromEmail: string
@@ -65,8 +95,129 @@ class EmailService {
     return this.transporter !== null
   }
 
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+  }
+
+  private formatValue(value: unknown): string {
+    if (value === undefined || value === null || value === '') return 'Not provided'
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+    if (Array.isArray(value)) return value.length > 0 ? value.join(', ') : 'Not provided'
+    return String(value)
+  }
+
+  private getVentureDisplayName(data: IntakeEmailData): string {
+    return data.ventureName_en || data.ventureName_km || 'your venture application'
+  }
+
+  private generateIntakeFounderConfirmationText(data: IntakeEmailData): string {
+    const ventureName = this.getVentureDisplayName(data)
+
+    return `
+Intake submission received
+
+Thank you for submitting your intake application for ${ventureName}.
+
+Our team has received your submission and will review the information provided. We will contact you if we need any additional details.
+
+Best regards,
+The Mekong Inclusive Ventures Team
+    `.trim()
+  }
+
+  private generateIntakeFounderConfirmationHTML(data: IntakeEmailData): string {
+    const ventureName = this.escapeHtml(this.getVentureDisplayName(data))
+
+    return `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>Intake submission received</h2>
+        <p>Thank you for submitting your intake application for <strong>${ventureName}</strong>.</p>
+        <p>Our team has received your submission and will review the information provided. We will contact you if we need any additional details.</p>
+        <p>Best regards,<br><strong>The Mekong Inclusive Ventures Team</strong></p>
+      </div>
+    `
+  }
+
+  private generateIntakeAdminNotificationText(data: IntakeEmailData): string {
+    const primaryFounder = data.founders?.[0]
+    const financials = data.financials
+
+    return `
+New intake submission received
+
+Founder: ${this.formatValue(primaryFounder?.fullName)}
+Founder email: ${this.formatValue(primaryFounder?.email)}
+Venture/Application: ${this.getVentureDisplayName(data)}
+Country: ${this.formatValue(data.country)}
+Impact areas: ${this.formatValue(data.impactAreas)}
+Triage track: ${this.formatValue(data.triageTrack)}
+Disability flag: ${this.formatValue(data.disabilityFlag)}
+Currency: ${this.formatValue(financials?.currency)}
+Last FY revenue: ${this.formatValue(financials?.lastFYRevenue)}
+Average monthly revenue: ${this.formatValue(financials?.avgMonthlyRevenue)}
+Current cash balance: ${this.formatValue(financials?.currentCashBalance)}
+Financial stage: ${this.formatValue(financials?.stage)}
+Intake ID: ${this.formatValue(data.id)}
+
+Description:
+${this.formatValue(data.description_en || data.description_km)}
+
+Triage rationale:
+${this.formatValue(data.triageRationale)}
+    `.trim()
+  }
+
+  private generateIntakeAdminNotificationHTML(data: IntakeEmailData): string {
+    const primaryFounder = data.founders?.[0]
+    const financials = data.financials
+    const rows: [string, unknown][] = [
+      ['Founder', primaryFounder?.fullName],
+      ['Founder email', primaryFounder?.email],
+      ['Venture/Application', this.getVentureDisplayName(data)],
+      ['Country', data.country],
+      ['Impact areas', data.impactAreas],
+      ['Triage track', data.triageTrack],
+      ['Disability flag', data.disabilityFlag],
+      ['Currency', financials?.currency],
+      ['Last FY revenue', financials?.lastFYRevenue],
+      ['Average monthly revenue', financials?.avgMonthlyRevenue],
+      ['Current cash balance', financials?.currentCashBalance],
+      ['Financial stage', financials?.stage],
+      ['Intake ID', data.id],
+    ]
+
+    const tableRows = rows
+      .map(([label, value]) => {
+        return `
+          <tr>
+            <th style="text-align:left;padding:8px;border-bottom:1px solid #e5e7eb;">${this.escapeHtml(label)}</th>
+            <td style="padding:8px;border-bottom:1px solid #e5e7eb;">${this.escapeHtml(this.formatValue(value))}</td>
+          </tr>
+        `
+      })
+      .join('')
+
+    return `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2>New intake submission received</h2>
+        <table style="border-collapse: collapse; width: 100%; max-width: 720px;">
+          <tbody>${tableRows}</tbody>
+        </table>
+        <h3>Description</h3>
+        <p>${this.escapeHtml(this.formatValue(data.description_en || data.description_km))}</p>
+        <h3>Triage rationale</h3>
+        <p>${this.escapeHtml(this.formatValue(data.triageRationale))}</p>
+      </div>
+    `
+  }
+
   private generateWelcomeEmailHTML(data: WelcomeEmailData): string {
-    const { firstName, lastName, ventureName, position } = data
+    const { firstName, ventureName, position } = data
     const loginUrl = process.env.NEXT_PUBLIC_SITE_URL 
       ? `${process.env.NEXT_PUBLIC_SITE_URL}/login`
       : 'http://localhost:3000/login'
@@ -225,6 +376,72 @@ Mekong Inclusive Ventures | Building Inclusive Futures
     }
   }
 
+  async sendIntakeConfirmationToFounder(
+    founderEmail: string | undefined,
+    ventureData: IntakeEmailData,
+  ): Promise<boolean> {
+    if (!founderEmail) {
+      console.warn('Founder email missing - skipping intake confirmation email')
+      return false
+    }
+
+    if (!this.isConfigured()) {
+      console.warn('Email service not configured - skipping intake confirmation email')
+      return false
+    }
+
+    try {
+      console.log(`Sending intake confirmation email to ${founderEmail}`)
+
+      const result = await this.transporter!.sendMail({
+        from: `"${this.fromName}" <${this.fromEmail}>`,
+        to: founderEmail,
+        subject: 'Intake submission received',
+        text: this.generateIntakeFounderConfirmationText(ventureData),
+        html: this.generateIntakeFounderConfirmationHTML(ventureData),
+      })
+
+      console.log('Intake confirmation email sent successfully:', result.messageId)
+      return true
+    } catch (error) {
+      console.error('Failed to send intake confirmation email:', error)
+      return false
+    }
+  }
+
+  async sendIntakeNotificationToAdmin(
+    adminEmail: string | undefined,
+    ventureData: IntakeEmailData,
+  ): Promise<boolean> {
+    if (!adminEmail) {
+      console.warn('ADMIN_NOTIFICATION_EMAIL missing - skipping intake admin notification email')
+      return false
+    }
+
+    if (!this.isConfigured()) {
+      console.warn('Email service not configured - skipping intake admin notification email')
+      return false
+    }
+
+    try {
+      console.log(`Sending intake admin notification email to ${adminEmail}`)
+
+      const result = await this.transporter!.sendMail({
+        from: `"${this.fromName}" <${this.fromEmail}>`,
+        to: adminEmail,
+        subject: 'New intake submission received',
+        text: this.generateIntakeAdminNotificationText(ventureData),
+        html: this.generateIntakeAdminNotificationHTML(ventureData),
+      })
+
+      console.log('Intake admin notification email sent successfully:', result.messageId)
+      return true
+    } catch (error) {
+      console.error('Failed to send intake admin notification email:', error)
+      return false
+    }
+  }
+
   async sendPasswordResetEmail(userEmail: string, resetToken: string) {
   if (!this.isConfigured()) {
     console.log("SMTP not configured, cannot send reset email.");
@@ -288,4 +505,4 @@ Mekong Inclusive Ventures | Building Inclusive Futures
 export const emailService = new EmailService()
 
 // Export types
-export type { WelcomeEmailData, TestEmailData }
+export type { WelcomeEmailData, TestEmailData, IntakeEmailData }
