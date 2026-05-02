@@ -947,7 +947,7 @@ export async function POST() {
         name: user.name,
         email: user.email,
         role: user.role,
-        password: user.role === 'ADMIN' ? 'admin123' : 
+        password: user.role === 'ADMIN' ? 'Set through password setup flow' :
                  user.role === 'VENTURE_MANAGER' ? 'manager123' :
                  user.role === 'GEDSI_ANALYST' ? 'analyst123' :
                  user.role === 'CAPITAL_FACILITATOR' ? 'facilitator123' :

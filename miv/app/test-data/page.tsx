@@ -30,12 +30,16 @@ interface TestResult {
   data?: any
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export default function TestDataPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [testResults, setTestResults] = useState<TestResult[]>([])
   const [seedData, setSeedData] = useState<any>(null)
 
-  const loginAs = async (email: string, desiredPassword = 'admin123') => {
+  const loginAs = async (email: string, desiredPassword = crypto.randomUUID()) => {
     try {
       // Ensure password is set (idempotent in dev)
       await fetch('/api/auth/set-password', {
@@ -80,7 +84,7 @@ export default function TestDataPage() {
       setTestResults(prev => 
         prev.map(t => 
           t.test === testName 
-            ? { ...t, status: 'error', message: error.message }
+            ? { ...t, status: 'error', message: getErrorMessage(error) }
             : t
         )
       )
@@ -360,10 +364,10 @@ export default function TestDataPage() {
               <div className="p-4 border rounded-lg bg-blue-50">
                 <h4 className="font-semibold text-blue-900 mb-2">Admin User</h4>
                 <p className="text-sm text-blue-700"><strong>Email:</strong> sarah.chen@miv.org</p>
-                <p className="text-sm text-blue-700"><strong>Password:</strong> admin123</p>
+                <p className="text-sm text-blue-700"><strong>Password:</strong> Generated when login starts</p>
                 <Badge className="mt-2">Full Access</Badge>
                 <div className="mt-3">
-                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => loginAs('sarah.chen@miv.org', 'admin123')}>Login as Admin</Button>
+                  <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => loginAs('sarah.chen@miv.org')}>Login as Admin</Button>
                 </div>
               </div>
               

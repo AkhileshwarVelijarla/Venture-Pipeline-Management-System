@@ -1,9 +1,9 @@
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { authorizeCredentials } from "@/lib/credentials-auth";
 
 const handler = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -19,46 +19,9 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(creds) {
-        if (!creds?.email || !creds?.password) return null;
-        const identifier = String(creds.email).trim();
-        const isEmail = identifier.includes("@");
-        const key = isEmail
-          ? { email: identifier.toLowerCase() }
-          : { id: identifier };
-        const user = await prisma.user.findUnique({ where: key as any });
-        if (!user) return null;
-        // Dev-only bypass: allow a known test password if no hash yet
-        if (!user.passwordHash) {
-          if (
-            process.env.NODE_ENV !== "production" &&
-            creds.password === "admin123"
-          ) {
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              role: user.role || undefined,
-            };
-          }
-          return null;
-        }
-        const ok = await bcrypt.compare(
-          String(creds.password),
-          user.passwordHash,
+        return authorizeCredentials(creds, (where) =>
+          prisma.user.findUnique({ where: where as any }),
         );
-        if (
-          !ok &&
-          process.env.NODE_ENV !== "production" &&
-          creds.password === "admin123"
-        ) {
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name || undefined,
-          };
-        }
-        if (!ok) return null;
-        return { id: user.id, email: user.email, name: user.name || undefined };
       },
     }),
   ],

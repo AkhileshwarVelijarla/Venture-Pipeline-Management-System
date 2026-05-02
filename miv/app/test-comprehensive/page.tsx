@@ -29,6 +29,10 @@ interface TestResult {
   data?: any
 }
 
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
 export default function ComprehensiveTestPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [testResults, setTestResults] = useState<TestResult[]>([])
@@ -51,7 +55,7 @@ export default function ComprehensiveTestPage() {
       setTestResults(prev => 
         prev.map(t => 
           t.test === testName 
-            ? { ...t, status: 'error', message: error.message }
+            ? { ...t, status: 'error', message: getErrorMessage(error) }
             : t
         )
       )
@@ -345,7 +349,7 @@ export default function ComprehensiveTestPage() {
                 <div className="p-4 border rounded-lg bg-blue-50">
                   <h4 className="font-semibold text-blue-900 mb-2">Admin User</h4>
                   <p className="text-sm text-blue-700"><strong>Email:</strong> sarah.chen@miv.org</p>
-                  <p className="text-sm text-blue-700"><strong>Password:</strong> admin123</p>
+                  <p className="text-sm text-blue-700"><strong>Password:</strong> Set through password setup flow</p>
                   <Badge className="mt-2">Full Access</Badge>
                 </div>
                 
